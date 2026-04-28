@@ -4,14 +4,9 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#define BM_ALPHABET_SIZE 256
-#define BM_LINEAR_THRESHOLD 4
-
 typedef struct {
     const uint8_t *pattern;
     size_t pattern_len;
-    int64_t bad_char[BM_ALPHABET_SIZE];
-    int64_t *good_suffix;
 } bm_context_t;
 
 /**

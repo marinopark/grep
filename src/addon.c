@@ -49,6 +49,7 @@ static napi_status get_needle_data(napi_env env, napi_value val,
         size_t str_len;
         s = napi_get_value_string_utf8(env, val, NULL, 0, &str_len);
         if (s != napi_ok) return s;
+        if (str_len >= SIZE_MAX) return napi_generic_failure;
         *alloc_buf = (uint8_t *)malloc(str_len + 1);
         if (!*alloc_buf) return napi_generic_failure;
         s = napi_get_value_string_utf8(env, val, (char *)*alloc_buf,
@@ -190,6 +191,13 @@ static napi_value js_search(napi_env env, napi_callback_info info)
     /* Reasonable cap to avoid huge allocations */
     if (max_results > haystack_len + 1)
         max_results = haystack_len + 1;
+    /* Guard against multiplication overflow */
+    if (max_results > SIZE_MAX / sizeof(int64_t)) {
+        bm_free(ctx);
+        if (needle_alloc) free(needle_alloc);
+        napi_throw_range_error(env, NULL, "haystack too large");
+        return NULL;
+    }
 
     results_buf = (int64_t *)malloc(max_results * sizeof(int64_t));
     if (!results_buf) {
@@ -317,6 +325,11 @@ static void async_execute(napi_env env, void *data)
                                  : (d->haystack_len + 1);
     if (max_results > d->haystack_len + 1)
         max_results = d->haystack_len + 1;
+    if (max_results > SIZE_MAX / sizeof(int64_t)) {
+        bm_free(ctx);
+        d->error = "Result buffer too large";
+        return;
+    }
 
     d->results = (int64_t *)malloc(max_results * sizeof(int64_t));
     if (!d->results) {
@@ -413,22 +426,59 @@ static napi_value js_search_async(napi_env env, napi_callback_info info)
     }
 
     /* Keep a reference to needle to prevent GC */
-    NAPI_CALL(env, napi_create_reference(env, argv[1], 1, &d->needle_ref));
+    if (napi_create_reference(env, argv[1], 1, &d->needle_ref) != napi_ok) {
+        napi_delete_reference(env, d->haystack_ref);
+        if (d->needle_alloc) free(d->needle_alloc);
+        free(d);
+        napi_throw_error(env, NULL, "Failed to create needle reference");
+        return NULL;
+    }
 
     /* options */
     parse_options(env, argc >= 3 ? argv[2] : NULL,
                   &d->overlap, &d->offset, &d->limit);
 
+    /* Guard against multiplication overflow in async worker */
+    {
+        size_t async_max = (d->limit > 0) ? (size_t)d->limit
+                                           : (d->haystack_len + 1);
+        if (async_max > d->haystack_len + 1)
+            async_max = d->haystack_len + 1;
+        if (async_max > SIZE_MAX / sizeof(int64_t)) {
+            napi_delete_reference(env, d->haystack_ref);
+            napi_delete_reference(env, d->needle_ref);
+            if (d->needle_alloc) free(d->needle_alloc);
+            free(d);
+            napi_throw_range_error(env, NULL, "haystack too large");
+            return NULL;
+        }
+    }
+
     /* Create promise */
-    NAPI_CALL(env, napi_create_promise(env, &d->deferred, &promise));
+    if (napi_create_promise(env, &d->deferred, &promise) != napi_ok) {
+        napi_delete_reference(env, d->haystack_ref);
+        napi_delete_reference(env, d->needle_ref);
+        if (d->needle_alloc) free(d->needle_alloc);
+        free(d);
+        napi_throw_error(env, NULL, "Failed to create promise");
+        return NULL;
+    }
 
     /* Create and queue async work */
-    NAPI_CALL(env, napi_create_string_utf8(env, "grep:searchAsync",
-                                           NAPI_AUTO_LENGTH, &resource_name));
-    NAPI_CALL(env, napi_create_async_work(env, NULL, resource_name,
-                                          async_execute, async_complete,
-                                          d, &d->work));
-    NAPI_CALL(env, napi_queue_async_work(env, d->work));
+    if (napi_create_string_utf8(env, "grep:searchAsync",
+                                NAPI_AUTO_LENGTH, &resource_name) != napi_ok ||
+        napi_create_async_work(env, NULL, resource_name,
+                               async_execute, async_complete,
+                               d, &d->work) != napi_ok ||
+        napi_queue_async_work(env, d->work) != napi_ok)
+    {
+        napi_delete_reference(env, d->haystack_ref);
+        napi_delete_reference(env, d->needle_ref);
+        if (d->needle_alloc) free(d->needle_alloc);
+        free(d);
+        napi_throw_error(env, NULL, "Failed to queue async work");
+        return NULL;
+    }
 
     return promise;
 }
