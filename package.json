@@ -1,0 +1,39 @@
+{
+  "name": "@marinopark/grep",
+  "version": "0.1.0",
+  "description": "Native C Boyer-Moore binary pattern search for Node.js Buffers. grep-level performance without leaving Node.",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "scripts": {
+    "install": "node-gyp rebuild",
+    "build": "node-gyp build",
+    "build:debug": "node-gyp build --debug",
+    "test": "node --test test/*.test.js",
+    "bench": "node test/benchmark.js"
+  },
+  "gypfile": true,
+  "keywords": [
+    "grep",
+    "boyer-moore",
+    "binary",
+    "search",
+    "buffer",
+    "native",
+    "napi",
+    "memory-dump",
+    "forensics",
+    "pattern-search"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "src/",
+    "lib/",
+    "binding.gyp",
+    "README.md",
+    "LICENSE"
+  ]
+}
