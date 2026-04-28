@@ -37,24 +37,24 @@ npm install @marinopark/grep
 const grep = require('@marinopark/grep');
 const fs = require('fs');
 
-// Search a memory dump for a string
-const dump = fs.readFileSync('memdump.bin');
-const offsets = grep.search(dump, Buffer.from('PASSWORD'));
+// Search a large binary file for a string
+const buf = fs.readFileSync('data.bin');
+const offsets = grep.search(buf, Buffer.from('HEADER'));
 // [1024, 8192, 32768]
 
 // Search for hex patterns
-const offsets2 = grep.search(dump, Buffer.from([0xDE, 0xAD, 0xBE, 0xEF]));
+const offsets2 = grep.search(buf, Buffer.from([0xDE, 0xAD, 0xBE, 0xEF]));
 
 // Count occurrences without allocating offset array
-const count = grep.count(dump, Buffer.from('SECRET'));
+const count = grep.count(buf, Buffer.from('MARKER'));
 
 // Async search (doesn't block the event loop)
-const asyncOffsets = await grep.searchAsync(dump, 'PASSWORD');
+const asyncOffsets = await grep.searchAsync(buf, 'HEADER');
 
 // Stream search for huge files
-const searchStream = grep.createSearchStream(Buffer.from('SECRET'));
+const searchStream = grep.createSearchStream(Buffer.from('MARKER'));
 searchStream.on('match', (offset) => console.log(`Found at byte ${offset}`));
-fs.createReadStream('huge_dump.bin').pipe(searchStream);
+fs.createReadStream('largefile.bin').pipe(searchStream);
 ```
 
 ## API Reference
@@ -130,7 +130,7 @@ Run benchmarks with:
 npm run bench
 ```
 
-**Real-world test: 240MB Zalo memory dump, searching for `"cipherKey"` (9 bytes, 8 matches)**
+**Real-world test: 240MB binary file, searching for a 9-byte keyword (8 matches)**
 
 | Method | Median | vs grep.search |
 |--------|--------|----------------|
@@ -138,12 +138,12 @@ npm run bench
 | **`grep.search`** | **7.9ms** | — |
 | `grep.count` | 7.1ms | 1.1x faster |
 
-**Pattern length comparison (same 240MB dump)**
+**Pattern length comparison (same 240MB file)**
 
 | Pattern | Buffer.indexOf loop | grep.search | Speedup |
 |---------|-------------------|-------------|---------|
 | 2-byte `0x0001` | 435ms | 61ms | **7.2x** |
-| 9-byte `cipherKey` | 113ms | 13ms | **8.6x** |
+| 9-byte keyword | 113ms | 13ms | **8.6x** |
 | 16-byte ASCII | 69ms | 15ms | **4.7x** |
 | No match (17-byte) | 59ms | 17ms | **3.4x** |
 

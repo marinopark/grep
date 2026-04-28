@@ -34,8 +34,8 @@
     "native",
     "napi",
     "n-api",
-    "memory-dump",
-    "forensics",
+    "binary-search",
+    "large-file",
     "pattern-search",
     "byte-search",
     "performance"
