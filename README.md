@@ -1,3 +1,8 @@
+[![npm version](https://img.shields.io/npm/v/@marinopark/grep.svg)](https://www.npmjs.com/package/@marinopark/grep)
+[![CI](https://github.com/marinopark/grep/actions/workflows/ci.yml/badge.svg)](https://github.com/marinopark/grep/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js Version](https://img.shields.io/node/v/@marinopark/grep.svg)](https://nodejs.org)
+
 # @marinopark/grep
 
 SIMD-accelerated native C binary pattern search for Node.js Buffers. **11x faster** than `Buffer.indexOf` loops on real-world data.
