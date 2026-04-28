@@ -171,6 +171,10 @@ npm run bench
 5. Commit and push
 6. Open a Pull Request
 
+## Bug Reports
+
+Found a bug? Please email **marino@flexbox.co.kr** with steps to reproduce.
+
 ## License
 
 MIT
